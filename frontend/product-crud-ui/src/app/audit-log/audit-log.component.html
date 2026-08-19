@@ -1,0 +1,91 @@
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>Lịch sử hoạt động</h1>
+      <p>Chỉ Role Admin được phép truy cập màn hình này.</p>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input
+      [(ngModel)]="keyword"
+      (ngModelChange)="onKeywordChange($event)"
+      placeholder="Tìm theo user hoặc nội dung log"
+    />
+
+    <select
+      [(ngModel)]="action"
+      (ngModelChange)="onActionChange()"
+    >
+      <option value="">Tất cả hành động</option>
+      <option value="CREATE">CREATE</option>
+      <option value="UPDATE">UPDATE</option>
+      <option value="DELETE">DELETE</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Thời gian</th>
+          <th>User</th>
+          <th>Hành động</th>
+          <th>Đối tượng</th>
+          <th>Nội dung</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngIf="isLoading">
+          <td colspan="5" class="center">Đang tải...</td>
+        </tr>
+
+        <tr *ngFor="let item of auditLogs">
+          <td>
+            {{ item.createdDate | date:'dd/MM/yyyy HH:mm:ss' }}
+          </td>
+          <td>{{ item.username }}</td>
+          <td>
+            <span class="action" [ngClass]="item.action.toLowerCase()">
+              {{ item.action }}
+            </span>
+          </td>
+          <td>
+            {{ item.entityName }}
+            <span *ngIf="item.entityId">#{{ item.entityId }}</span>
+          </td>
+          <td>{{ item.description }}</td>
+        </tr>
+
+        <tr *ngIf="!isLoading && auditLogs.length === 0">
+          <td colspan="5" class="center">
+            Chưa có lịch sử hoạt động
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <span>Tổng: {{ totalRecords }} log</span>
+
+    <div>
+      <button
+        [disabled]="pageIndex === 1"
+        (click)="changePage(pageIndex - 1)"
+      >
+        ← Trước
+      </button>
+
+      <span>Trang {{ pageIndex }} / {{ totalPages }}</span>
+
+      <button
+        [disabled]="pageIndex === totalPages"
+        (click)="changePage(pageIndex + 1)"
+      >
+        Sau →
+      </button>
+    </div>
+  </div>
+</div>

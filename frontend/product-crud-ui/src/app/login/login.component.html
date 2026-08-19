@@ -1,0 +1,36 @@
+<div class="login-page">
+  <form class="login-card" (ngSubmit)="login()">
+    <h1>Đăng nhập</h1>
+    <p>Product CRUD - Week 2</p>
+
+    <label>Tên đăng nhập</label>
+    <input
+      name="username"
+      [(ngModel)]="model.username"
+      autocomplete="username"
+    />
+
+    <label>Mật khẩu</label>
+    <input
+      name="password"
+      type="password"
+      [(ngModel)]="model.password"
+      autocomplete="current-password"
+    />
+
+    <button
+      class="primary"
+      type="submit"
+      [disabled]="isSubmitting"
+    >
+      {{ isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập' }}
+    </button>
+
+    <div class="demo-users">
+      <strong>Tài khoản demo</strong>
+<span>Admin: admin / Admin&#64;123</span>
+<span>Editor: editor / Editor&#64;123</span>
+<span>Viewer: viewer / Viewer&#64;123</span>
+    </div>
+  </form>
+</div>

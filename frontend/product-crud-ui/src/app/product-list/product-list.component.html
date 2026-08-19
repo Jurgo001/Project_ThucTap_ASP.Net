@@ -1,0 +1,217 @@
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>Quản lý sản phẩm</h1>
+      <p>
+        Server-side pagination, filtering & sorting
+        · Role hiện tại: {{ authService.currentUser?.role }}
+      </p>
+    </div>
+
+    <button
+      *ngIf="canCreateOrEdit"
+      class="primary"
+      (click)="openCreate()"
+    >
+      + Thêm sản phẩm
+    </button>
+  </div>
+
+  <div class="toolbar">
+    <input
+      [(ngModel)]="keyword"
+      (ngModelChange)="onKeywordChange($event)"
+      placeholder="Gõ để tìm theo mã hoặc tên sản phẩm"
+    />
+
+    <select
+      [(ngModel)]="isActive"
+      (ngModelChange)="onActiveFilterChange()"
+    >
+      <option [ngValue]="null">Tất cả trạng thái</option>
+      <option [ngValue]="true">Đang bán</option>
+      <option [ngValue]="false">Ngừng bán</option>
+    </select>
+
+    <select
+      [(ngModel)]="pageSize"
+      (ngModelChange)="onPageSizeChange()"
+    >
+      <option [ngValue]="5">5 / trang</option>
+      <option [ngValue]="10">10 / trang</option>
+      <option [ngValue]="20">20 / trang</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="sortable" (click)="sortBy('Id')">
+            ID {{ getSortIcon('Id') }}
+          </th>
+          <th class="sortable" (click)="sortBy('ProductCode')">
+            Mã SP {{ getSortIcon('ProductCode') }}
+          </th>
+          <th class="sortable" (click)="sortBy('ProductName')">
+            Tên sản phẩm {{ getSortIcon('ProductName') }}
+          </th>
+          <th class="sortable" (click)="sortBy('Price')">
+            Giá {{ getSortIcon('Price') }}
+          </th>
+          <th class="sortable" (click)="sortBy('Quantity')">
+            Số lượng {{ getSortIcon('Quantity') }}
+          </th>
+          <th class="sortable" (click)="sortBy('IsActive')">
+            Trạng thái {{ getSortIcon('IsActive') }}
+          </th>
+          <th *ngIf="canCreateOrEdit || canDelete">
+            Thao tác
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngIf="isLoading">
+          <td
+            [attr.colspan]="(canCreateOrEdit || canDelete) ? 7 : 6"
+            class="center"
+          >
+            Đang tải...
+          </td>
+        </tr>
+
+        <tr *ngFor="let item of products">
+          <td>{{ item.id }}</td>
+          <td>{{ item.productCode }}</td>
+          <td>{{ item.productName }}</td>
+          <td>{{ item.price | number:'1.0-0' }} đ</td>
+          <td>{{ item.quantity }}</td>
+          <td>
+            <span
+              [class.active]="item.isActive"
+              [class.inactive]="!item.isActive"
+            >
+              {{ item.isActive ? 'Đang bán' : 'Ngừng bán' }}
+            </span>
+          </td>
+
+          <td
+            *ngIf="canCreateOrEdit || canDelete"
+            class="actions"
+          >
+            <button
+              *ngIf="canCreateOrEdit"
+              (click)="openEdit(item.id)"
+            >
+              Sửa
+            </button>
+
+            <button
+              *ngIf="canDelete"
+              class="danger"
+              (click)="deleteProduct(item)"
+            >
+              Xóa
+            </button>
+          </td>
+        </tr>
+
+        <tr *ngIf="!isLoading && products.length === 0">
+          <td
+            [attr.colspan]="(canCreateOrEdit || canDelete) ? 7 : 6"
+            class="center"
+          >
+            Không có dữ liệu
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <span>Tổng: {{ totalRecords }} sản phẩm</span>
+
+    <div>
+      <button
+        [disabled]="pageIndex === 1"
+        (click)="changePage(pageIndex - 1)"
+      >
+        ← Trước
+      </button>
+
+      <span>Trang {{ pageIndex }} / {{ totalPages }}</span>
+
+      <button
+        [disabled]="pageIndex === totalPages"
+        (click)="changePage(pageIndex + 1)"
+      >
+        Sau →
+      </button>
+    </div>
+  </div>
+
+  <app-file-upload
+    *ngIf="canCreateOrEdit"
+  ></app-file-upload>
+</div>
+
+<div
+  class="modal-backdrop"
+  *ngIf="showPopup"
+  (click)="closePopup()"
+>
+  <div
+    class="modal"
+    (click)="$event.stopPropagation()"
+  >
+    <h2>
+      {{ isEditMode ? 'Sửa sản phẩm' : 'Thêm sản phẩm' }}
+    </h2>
+
+    <label>Mã sản phẩm</label>
+    <input
+      [(ngModel)]="model.productCode"
+      placeholder="VD: SP004"
+    />
+
+    <label>Tên sản phẩm</label>
+    <input
+      [(ngModel)]="model.productName"
+      placeholder="Tên sản phẩm"
+    />
+
+    <label>Giá</label>
+    <input
+      type="number"
+      min="0"
+      [(ngModel)]="model.price"
+    />
+
+    <label>Số lượng</label>
+    <input
+      type="number"
+      min="0"
+      [(ngModel)]="model.quantity"
+    />
+
+    <label class="checkbox">
+      <input
+        type="checkbox"
+        [(ngModel)]="model.isActive"
+      />
+      Đang kinh doanh
+    </label>
+
+    <div class="modal-actions">
+      <button (click)="closePopup()">Hủy</button>
+
+      <button
+        class="primary"
+        (click)="save()"
+      >
+        {{ isEditMode ? 'Lưu thay đổi' : 'Thêm mới' }}
+      </button>
+    </div>
+  </div>
+</div>

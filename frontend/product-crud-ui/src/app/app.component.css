@@ -1,0 +1,62 @@
+.topbar {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 24px;
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.brand {
+  font-weight: 800;
+}
+
+nav {
+  display: flex;
+  gap: 6px;
+}
+
+nav a {
+  padding: 9px 12px;
+  border-radius: 7px;
+  color: #cbd5e1;
+  text-decoration: none;
+}
+
+nav a.active,
+nav a:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.user-box {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-box button {
+  padding: 8px 12px;
+  border: 1px solid #475569;
+  border-radius: 7px;
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .user-box {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+}

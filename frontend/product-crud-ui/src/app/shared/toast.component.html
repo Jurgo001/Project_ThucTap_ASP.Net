@@ -1,0 +1,8 @@
+<div
+  *ngIf="toastService.toast$ | async as toast"
+  class="toast"
+  [ngClass]="toast.type"
+>
+  <span>{{ toast.message }}</span>
+  <button type="button" (click)="toastService.clear()">×</button>
+</div>

@@ -1,0 +1,113 @@
+.page {
+  max-width: 1180px;
+  margin: 24px auto;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .08);
+}
+
+.header,
+.toolbar,
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+h1 {
+  margin: 0 0 4px;
+}
+
+p {
+  margin: 0;
+  color: #64748b;
+}
+
+.toolbar {
+  justify-content: flex-start;
+  margin: 24px 0 16px;
+}
+
+.toolbar input {
+  width: 360px;
+}
+
+input,
+select {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+th {
+  background: #f8fafc;
+}
+
+.center {
+  text-align: center;
+  color: #64748b;
+}
+
+.action {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.action.create {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.action.update {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.action.delete {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.pagination {
+  margin-top: 18px;
+}
+
+.pagination div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+button {
+  padding: 9px 14px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: .5;
+  cursor: default;
+}

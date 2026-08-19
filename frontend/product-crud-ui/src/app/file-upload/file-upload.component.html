@@ -1,0 +1,45 @@
+<div class="upload-card">
+  <div>
+    <h3>Tải hình ảnh / tài liệu</h3>
+    <p>Cho phép JPG, JPEG, PNG, PDF. Tối đa 5 MB.</p>
+  </div>
+
+  <div class="upload-controls">
+    <input
+      type="file"
+      accept=".jpg,.jpeg,.png,.pdf"
+      (change)="onFileSelected($event)"
+    />
+
+    <button
+      type="button"
+      (click)="upload()"
+      [disabled]="!selectedFile || isUploading"
+    >
+      {{ isUploading ? 'Đang tải...' : 'Upload' }}
+    </button>
+  </div>
+
+  <div
+    *ngIf="isUploading || progress > 0"
+    class="progress-track"
+  >
+    <div
+      class="progress-bar"
+      [style.width.%]="progress"
+    ></div>
+  </div>
+
+  <span *ngIf="isUploading || progress > 0">
+    {{ progress }}%
+  </span>
+
+  <a
+    *ngIf="uploadedFile"
+    [href]="uploadedFile.url"
+    target="_blank"
+    rel="noopener"
+  >
+    Mở file: {{ uploadedFile.originalFileName }}
+  </a>
+</div>

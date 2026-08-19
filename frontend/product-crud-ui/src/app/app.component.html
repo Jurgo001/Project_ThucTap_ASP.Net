@@ -1,0 +1,38 @@
+<app-toast></app-toast>
+
+<header
+  class="topbar"
+  *ngIf="authService.isAuthenticated()"
+>
+  <div class="brand">Product CRUD</div>
+
+  <nav>
+    <a
+      routerLink="/products"
+      routerLinkActive="active"
+    >
+      Sản phẩm
+    </a>
+
+    <a
+      *ngIf="authService.hasRole(['Admin'])"
+      routerLink="/audit-logs"
+      routerLinkActive="active"
+    >
+      Lịch sử hoạt động
+    </a>
+  </nav>
+
+  <div class="user-box">
+    <span>
+      {{ authService.currentUser?.username }}
+      · {{ authService.currentUser?.role }}
+    </span>
+
+    <button type="button" (click)="logout()">
+      Đăng xuất
+    </button>
+  </div>
+</header>
+
+<router-outlet></router-outlet>

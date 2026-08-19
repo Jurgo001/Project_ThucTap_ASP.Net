@@ -1,0 +1,46 @@
+.upload-card {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.upload-card h3 {
+  margin: 0 0 4px;
+}
+
+.upload-card p {
+  margin: 0;
+  color: #64748b;
+}
+
+.upload-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.upload-controls button {
+  white-space: nowrap;
+}
+
+.progress-track {
+  height: 10px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #2563eb;
+  transition: width .2s ease;
+}
+
+.upload-card a {
+  display: inline-block;
+  margin-top: 10px;
+}
