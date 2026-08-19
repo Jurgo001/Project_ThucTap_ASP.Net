@@ -1,4 +1,4 @@
-# Product CRUD - Week 2
+# Product CRUD - Week 2/12
 
 Đây là project thực tập tuần 2, phát triển tiếp từ bài CRUD sản phẩm ở tuần 1.
 
