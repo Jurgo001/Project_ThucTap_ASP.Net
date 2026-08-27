@@ -1,19 +1,31 @@
 using System.Text;
 using System.Text.Json;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using ProductCrud.Api.Data;
+
 using ProductCrud.Api.Infrastructure;
+using ProductCrud.Api.Middleware;
 using ProductCrud.Api.Models;
-using ProductCrud.Api.Models.Entities;
-using ProductCrud.Api.Repositories;
 using ProductCrud.Api.Services;
 
+using ProductCrud.DataServices.Data;
+using ProductCrud.DataServices.Entities;
+using ProductCrud.DataServices.Infrastructure;
+using ProductCrud.DataServices.Repositories;
+using ProductCrud.DataServices.Services;
+
+using ProductCrud.Api.Infrastructure.Caching;
+using ProductCrud.DataServices.Infrastructure.Caching;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ICacheService,MemoryCacheService>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -37,6 +49,8 @@ builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IPasswordHasher<AppUserEntity>, PasswordHasher<AppUserEntity>>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
 
 builder.Services
     .AddControllers()

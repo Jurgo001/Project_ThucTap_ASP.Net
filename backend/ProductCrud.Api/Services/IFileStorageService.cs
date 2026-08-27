@@ -1,5 +1,5 @@
-using ProductCrud.Api.Models;
 using ProductCrud.Api.Models.Files;
+using ProductCrud.DataServices.Models;
 
 namespace ProductCrud.Api.Services;
 

@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ProductCrud.Api.Models;
-using ProductCrud.Api.Services;
+using ProductCrud.DataServices.Models;
+using ProductCrud.DataServices.Services;
 
 namespace ProductCrud.Api.Controllers;
 
