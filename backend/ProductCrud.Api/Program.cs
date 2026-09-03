@@ -22,10 +22,17 @@ using ProductCrud.DataServices.Services;
 using ProductCrud.Api.Infrastructure.Caching;
 using ProductCrud.DataServices.Infrastructure.Caching;
 
+using ProductCrud.DataServices.Audit;
+using ProductCrud.Api.BackgroundServices;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ICacheService,MemoryCacheService>();
+
+//Gọi audit
+builder.Services.AddSingleton<IAuditLogQueue,AuditLogQueue>();
+builder.Services.AddHostedService<AuditLogBackgroundService>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();

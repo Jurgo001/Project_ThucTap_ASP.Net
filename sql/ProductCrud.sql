@@ -106,3 +106,35 @@ BEGIN
         (N'SP003', N'Tai nghe gaming', 1200000, 8, 1, NULL);
 END
 GO
+
+IF OBJECT_ID(N'dbo.Categories', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Categories
+    (
+        Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        CategoryName NVARCHAR(100) NOT NULL,
+        IsActive BIT NOT NULL
+            CONSTRAINT DF_Categories_IsActive DEFAULT (1),
+        IsDeleted BIT NOT NULL
+            CONSTRAINT DF_Categories_IsDeleted DEFAULT (0),
+        CreatedDate DATETIME2 NOT NULL
+            CONSTRAINT DF_Categories_CreatedDate DEFAULT (GETUTCDATE()),
+        ModifiedDate DATETIME2 NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Categories)
+BEGIN
+    INSERT INTO dbo.Categories (CategoryName)
+    VALUES
+        (N'Laptop'),
+        (N'Keyboard'),
+        (N'Mouse');
+END
+GO
+
+SELECT * FROM dbo.Categories;
+SELECT TOP 10 *
+FROM dbo.AuditLogs
+ORDER BY Id DESC;
