@@ -27,6 +27,7 @@ using ProductCrud.Api.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ICacheService,MemoryCacheService>();
 
@@ -147,6 +148,15 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider
+        .GetRequiredService<ProductCrudDbContext>();
+
+    await dbContext.Database.MigrateAsync();
+}
+await DbInitializer.InitializeAsync(app.Services);
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
