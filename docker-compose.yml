@@ -24,7 +24,18 @@ services:
       retries: 10
       start_period: 20s
 
+  redis:
+    image: redis:7-alpine
+    container_name: productcrud-redis
 
+    ports:
+      - "6379:6379"
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   api:
     build:
       context: ./backend
@@ -43,13 +54,16 @@ services:
       Jwt__Audience: "ProductCrud.Angular"
       Jwt__ExpiresMinutes: "120"
 
+      Redis__ConnectionString: "redis:6379"
+
     ports:
       - "5081:8080"
 
     depends_on:
       sqlserver:
         condition: service_healthy
-
+      redis:
+        condition: service_healthy  
 
   frontend:
     build:

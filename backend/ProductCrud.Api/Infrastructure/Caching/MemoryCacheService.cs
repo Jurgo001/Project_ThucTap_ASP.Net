@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using ProductCrud.DataServices.Infrastructure.Caching;
 
 namespace ProductCrud.Api.Infrastructure.Caching;
@@ -13,28 +12,37 @@ public class MemoryCacheService : ICacheService
         _memoryCache = memoryCache;
     }
 
-    public bool TryGetValue<T>(
+    public Task<T?> GetAsync<T>(
         string key,
-        out T? value)
+        CancellationToken cancellationToken = default)
     {
-        return _memoryCache.TryGetValue(
+        _memoryCache.TryGetValue(
             key,
-            out value);
+            out T? value);
+
+        return Task.FromResult(value);
     }
 
-    public void Set<T>(
+    public Task SetAsync<T>(
         string key,
         T value,
-        TimeSpan expiration)
+        TimeSpan expiration,
+        CancellationToken cancellationToken = default)
     {
         _memoryCache.Set(
             key,
             value,
             expiration);
+
+        return Task.CompletedTask;
     }
 
-    public void Remove(string key)
+    public Task RemoveAsync(
+        string key,
+        CancellationToken cancellationToken = default)
     {
         _memoryCache.Remove(key);
+
+        return Task.CompletedTask;
     }
 }

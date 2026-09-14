@@ -24,24 +24,27 @@ public class CategoryService : ICategoryService
 
     public async Task<ResultModel<List<CategoryDTO>>> GetAllAsync()
     {
-        if (_cache.TryGetValue(
-            CacheKeys.Categories,
-            out List<CategoryDTO>? cachedCategories))
+        var cachedCategories =
+            await _cache.GetAsync<List<CategoryDTO>>(
+                CacheKeys.Categories);
+
+        if (cachedCategories is not null)
         {
-            Console.WriteLine("CACHE HIT - Categories");
+            Console.WriteLine(
+                "REDIS HIT - Categories");
 
             return ResultModel<List<CategoryDTO>>.Ok(
-                cachedCategories!,
+                cachedCategories,
                 "Lấy danh sách danh mục thành công.");
         }
 
         Console.WriteLine(
-            "CACHE MISS - Query Categories từ database");
+            "REDIS MISS - Query Categories from database");
 
         var categories =
             await _repository.GetAllAsync();
 
-        _cache.Set(
+        await _cache.SetAsync(
             CacheKeys.Categories,
             categories,
             TimeSpan.FromMinutes(10));
@@ -75,10 +78,9 @@ public class CategoryService : ICategoryService
 
         var id =await _repository.CreateAsync(model);
 
-        _cache.Remove(CacheKeys.Categories);
+        await _cache.RemoveAsync( CacheKeys.Categories);
 
-        Console.WriteLine(
-            "CACHE INVALIDATED - Categories");
+        Console.WriteLine("REDIS INVALIDATED - Categories");
 
         return ResultModel<int>.Ok(
             id,
@@ -101,8 +103,10 @@ public class CategoryService : ICategoryService
                 "Không tìm thấy danh mục cần sửa.");
         }
 
-        _cache.Remove(CacheKeys.Categories);
-        Console.WriteLine("CACHE INVALIDATED - Categories");
+
+        await _cache.RemoveAsync(CacheKeys.Categories);
+
+        Console.WriteLine("REDIS INVALIDATED - Categories");
 
         return ResultModel<bool>.Ok(
             true,
@@ -123,8 +127,10 @@ public class CategoryService : ICategoryService
                 "Không tìm thấy danh mục cần xóa.");
         }
 
-        _cache.Remove(CacheKeys.Categories);
-        Console.WriteLine("CACHE INVALIDATED - Categories");
+
+        await _cache.RemoveAsync(CacheKeys.Categories);
+
+        Console.WriteLine("REDIS INVALIDATED - Categories");
 
         return ResultModel<bool>.Ok(
             true,

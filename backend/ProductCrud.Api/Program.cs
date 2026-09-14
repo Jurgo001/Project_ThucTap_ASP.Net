@@ -28,8 +28,17 @@ using ProductCrud.Api.BackgroundServices;
 var builder = WebApplication.CreateBuilder(args);
 
 
-builder.Services.AddMemoryCache();
-builder.Services.AddSingleton<ICacheService,MemoryCacheService>();
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration =
+        builder.Configuration["Redis:ConnectionString"];
+
+    options.InstanceName = "ProductCrud:";
+});
+
+builder.Services.AddScoped<
+    ICacheService,
+    RedisCacheService>();
 
 //Gọi audit
 builder.Services.AddSingleton<IAuditLogQueue,AuditLogQueue>();
@@ -204,7 +213,5 @@ app.UseCors("Angular");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
-await DbInitializer.InitializeAsync(app.Services);
 
 app.Run();

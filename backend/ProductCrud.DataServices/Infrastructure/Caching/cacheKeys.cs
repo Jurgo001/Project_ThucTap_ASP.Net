@@ -8,5 +8,5 @@ namespace ProductCrud.DataServices.Infrastructure.Caching;
 
 public static class CacheKeys
 {
-    public const string Categories = "categories:all";
+    public const string Categories ="categories:all";
 }

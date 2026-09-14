@@ -8,12 +8,17 @@ namespace ProductCrud.DataServices.Infrastructure.Caching;
 
 public interface ICacheService
 {
-    bool TryGetValue<T>(string key, out T? value);
+    Task<T?> GetAsync<T>(
+        string key,
+        CancellationToken cancellationToken = default);
 
-    void Set<T>(
+    Task SetAsync<T>(
         string key,
         T value,
-        TimeSpan expiration);
+        TimeSpan expiration,
+        CancellationToken cancellationToken = default);
 
-    void Remove(string key);
+    Task RemoveAsync(
+        string key,
+        CancellationToken cancellationToken = default);
 }
