@@ -1,25 +1,23 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host "====================================="
-Write-Host " ProductCRUD Deployment"
+Write-Host " ProductCRUD Fast Deployment"
 Write-Host "====================================="
 
-# 1. Đi về đúng thư mục chứa script
 Set-Location $PSScriptRoot
 
-# 2. Kiểm tra Docker CLI
+# 1. Check Docker
 Write-Host "`n[1/6] Checking Docker..."
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     Write-Host "Docker CLI not found."
-    Write-Host "Please install/start Docker Desktop."
     exit 1
 }
 
-# 3. Kiểm tra Docker Engine
-docker info *> $null
-
-if ($LASTEXITCODE -ne 0) {
+try {
+    docker info *> $null
+}
+catch {
     Write-Host "Docker Engine is not running."
     Write-Host "Please start Docker Desktop first."
     exit 1
@@ -27,7 +25,7 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "Docker is running."
 
-# 4. Kiểm tra file cần thiết
+# 2. Check configuration
 Write-Host "`n[2/6] Checking configuration..."
 
 if (-not (Test-Path ".\docker-compose.yml")) {
@@ -37,14 +35,24 @@ if (-not (Test-Path ".\docker-compose.yml")) {
 
 if (-not (Test-Path ".\.env")) {
     Write-Host ".env not found."
-    Write-Host "Create .env from .env.example first."
     exit 1
 }
 
 Write-Host "Configuration OK."
 
-# 5. Xóa container cũ
-Write-Host "`n[3/6] Stopping old containers..."
+# 3. BUILD TRƯỚC
+# Không down container ngay để hệ thống cũ vẫn chạy trong lúc build
+Write-Host "`n[3/6] Building changed images using Docker cache..."
+
+docker compose build
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Build failed."
+    exit 1
+}
+
+# 4. Stop old containers AFTER build
+Write-Host "`n[4/6] Replacing old containers..."
 
 docker compose down --remove-orphans
 
@@ -53,37 +61,60 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# 6. Build image mới
-Write-Host "`n[4/6] Building images..."
-
-docker compose build
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Docker build failed."
-    exit 1
-}
-
-# 7. Chạy toàn bộ stack
-Write-Host "`n[5/6] Starting containers..."
+# 5. Start
+Write-Host "`n[5/6] Starting services..."
 
 docker compose up -d
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Failed to start containers."
+    Write-Host "Failed to start services."
     exit 1
 }
 
-# Chờ các service startup
 Write-Host "Waiting for services..."
-Start-Sleep -Seconds 10
+Start-Sleep -Seconds 8
 
-# 8. Hiển thị trạng thái
-Write-Host "`n[6/6] Container status:"
+# 6. Verify
+Write-Host "`n[6/6] Checking containers..."
+
 docker compose ps
+
+Write-Host "`nChecking frontend..."
+
+try {
+    $frontend = Invoke-WebRequest `
+        -Uri "http://localhost:4200" `
+        -UseBasicParsing `
+        -TimeoutSec 10
+
+    if ($frontend.StatusCode -eq 200) {
+        Write-Host "Frontend OK."
+    }
+}
+catch {
+    Write-Host "WARNING: Frontend is not ready yet."
+}
+
+Write-Host "`nChecking API..."
+
+try {
+    $api = Invoke-WebRequest `
+        -Uri "http://localhost:5081/swagger/index.html" `
+        -UseBasicParsing `
+        -TimeoutSec 10
+
+    if ($api.StatusCode -eq 200) {
+        Write-Host "API OK."
+    }
+}
+catch {
+    Write-Host "WARNING: API is not ready."
+    Write-Host "Run: docker compose logs api --tail 100"
+}
 
 Write-Host ""
 Write-Host "====================================="
-Write-Host " Deployment completed"
+Write-Host " Deployment finished"
 Write-Host "====================================="
 Write-Host "Frontend : http://localhost:4200"
 Write-Host "Swagger  : http://localhost:5081/swagger"
