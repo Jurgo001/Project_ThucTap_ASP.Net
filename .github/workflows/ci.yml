@@ -56,3 +56,36 @@ jobs:
           backend/ProductCrud.Api/ProductCrud.Api.csproj
           --configuration Release
           --no-restore
+  frontend-docker-build:
+    name: Frontend Docker Image
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-build
+      - backend-build
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Build frontend Docker image
+        run: docker build -t productcrud-frontend:ci frontend/product-crud-ui
+
+      - name: Verify frontend Docker image
+        run: docker image inspect productcrud-frontend:ci
+
+  backend-docker-build:
+    name: API Docker Image
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-build
+      - backend-build
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Build API Docker image
+        run: docker build -t productcrud-api:ci -f backend/ProductCrud.Api/Dockerfile backend
+
+      - name: Verify API Docker image
+        run: docker image inspect productcrud-api:ci
