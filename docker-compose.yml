@@ -87,6 +87,26 @@ services:
       seq:
         condition: service_started
 
+  gateway:
+    build:
+      context: ./backend
+      dockerfile: ProductCrud.Gateway/Dockerfile
+
+    container_name: productcrud-gateway
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+
+      ReverseProxy__Clusters__apiCluster__Destinations__apiDestination__Address: "http://api:8080/"
+
+    ports:
+      - "5082:8080"
+
+    depends_on:
+      api:
+        condition: service_started
+        
   frontend:
     build:
       context: ./frontend/product-crud-ui
@@ -98,7 +118,8 @@ services:
       - "4200:80"
 
     depends_on:
-      - api
+      gateway:
+        condition: service_started
 
 
 volumes:

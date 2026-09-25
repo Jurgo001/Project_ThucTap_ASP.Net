@@ -56,6 +56,17 @@ jobs:
           backend/ProductCrud.Api/ProductCrud.Api.csproj
           --configuration Release
           --no-restore
+
+      - name: Restore Gateway dependencies
+        run: dotnet restore backend/ProductCrud.Gateway/ProductCrud.Gateway.csproj
+
+      - name: Build Gateway
+        run: >
+          dotnet build
+          backend/ProductCrud.Gateway/ProductCrud.Gateway.csproj
+          --configuration Release
+          --no-restore
+
   frontend-docker-build:
     name: Frontend Docker Image
     runs-on: ubuntu-latest
@@ -89,3 +100,23 @@ jobs:
 
       - name: Verify API Docker image
         run: docker image inspect productcrud-api:ci
+
+  gateway-docker-build:
+    name: Gateway Docker Image
+    runs-on: ubuntu-latest
+    needs:
+      - backend-build
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Build Gateway Docker image
+        run: >
+          docker build
+          -t productcrud-gateway:ci
+          -f backend/ProductCrud.Gateway/Dockerfile
+          backend
+
+      - name: Verify Gateway Docker image
+        run: docker image inspect productcrud-gateway:ci
