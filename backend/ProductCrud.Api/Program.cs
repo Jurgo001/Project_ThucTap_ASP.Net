@@ -1,3 +1,6 @@
+using Serilog;
+using Serilog.Events;
+
 using System.Text;
 using System.Text.Json;
 
@@ -27,6 +30,32 @@ using ProductCrud.Api.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSerilog((services, loggerConfiguration) =>
+{
+    loggerConfiguration
+        .ReadFrom.Configuration(builder.Configuration)
+        .ReadFrom.Services(services)
+        .MinimumLevel.Information()
+        .MinimumLevel.Override(
+            "Microsoft.AspNetCore.Hosting",
+            LogEventLevel.Warning)
+        .MinimumLevel.Override(
+            "Microsoft.AspNetCore.Mvc",
+            LogEventLevel.Warning)
+        .MinimumLevel.Override(
+            "Microsoft.AspNetCore.Routing",
+            LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .WriteTo.Console();
+
+    var seqServerUrl =
+        builder.Configuration["Seq:ServerUrl"];
+
+    if (!string.IsNullOrWhiteSpace(seqServerUrl))
+    {
+        loggerConfiguration.WriteTo.Seq(seqServerUrl);
+    }
+});
 
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -41,7 +70,7 @@ builder.Services.AddScoped<
     RedisCacheService>();
 
 //Gọi audit
-builder.Services.AddSingleton<IAuditLogQueue,AuditLogQueue>();
+builder.Services.AddSingleton<IAuditLogQueue, AuditLogQueue>();
 builder.Services.AddHostedService<AuditLogBackgroundService>();
 
 builder.Services.AddHttpContextAccessor();
@@ -157,6 +186,8 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+app.UseSerilogRequestLogging();
 
 using (var scope = app.Services.CreateScope())
 {
