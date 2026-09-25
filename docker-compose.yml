@@ -36,6 +36,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  seq:
+    image: datalust/seq:2026.1
+    container_name: productcrud-seq
+
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "True"
+
+    ports:
+      - "127.0.0.1:5342:80"
+
+    expose:
+      - "5341"
+
+    volumes:
+      - seq_data:/data
+
   api:
     build:
       context: ./backend
@@ -56,6 +74,8 @@ services:
 
       Redis__ConnectionString: "redis:6379"
 
+      Seq__ServerUrl: "http://seq:5341"
+
     ports:
       - "5081:8080"
 
@@ -64,6 +84,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy  
+      seq:
+        condition: service_started
 
   frontend:
     build:
@@ -81,3 +103,4 @@ services:
 
 volumes:
   sqlserver_data:
+  seq_data:

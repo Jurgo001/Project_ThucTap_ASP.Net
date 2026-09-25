@@ -47,6 +47,14 @@ builder.Services.AddSerilog((services, loggerConfiguration) =>
             LogEventLevel.Warning)
         .Enrich.FromLogContext()
         .WriteTo.Console();
+
+    var seqServerUrl =
+        builder.Configuration["Seq:ServerUrl"];
+
+    if (!string.IsNullOrWhiteSpace(seqServerUrl))
+    {
+        loggerConfiguration.WriteTo.Seq(seqServerUrl);
+    }
 });
 
 builder.Services.AddStackExchangeRedisCache(options =>
