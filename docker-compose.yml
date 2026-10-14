@@ -90,7 +90,7 @@ services:
     container_name: productcrud-gateway
 
     ports:
-      - "5082:8080"
+      - "5000:8080"
 
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
@@ -101,6 +101,15 @@ services:
       ReverseProxy__Clusters__apiCluster__Destinations__apiDestination__Address: "http://api-web1:8080/"
       ReverseProxy__Clusters__apiCluster__Destinations__apiDestination2__Address: "http://api-web2:8080/"
       ReverseProxy__Clusters__apiCluster__Destinations__apiDestination3__Address: "http://api-web3:8080/"
+      ReverseProxy__Clusters__apiCluster__HealthCheck__AvailableDestinationsPolicy: "HealthyAndUnknown"
+
+      ReverseProxy__Clusters__apiCluster__HealthCheck__Active__Enabled: "true"
+      ReverseProxy__Clusters__apiCluster__HealthCheck__Active__Interval: "00:00:02"
+      ReverseProxy__Clusters__apiCluster__HealthCheck__Active__Timeout: "00:00:01"
+      ReverseProxy__Clusters__apiCluster__HealthCheck__Active__Policy: "ConsecutiveFailures"
+      ReverseProxy__Clusters__apiCluster__HealthCheck__Active__Path: "/health"
+
+      ReverseProxy__Clusters__apiCluster__Metadata__ConsecutiveFailuresHealthPolicy.Threshold: "1"
 
     depends_on:
       api-web1:

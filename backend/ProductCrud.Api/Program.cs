@@ -185,6 +185,8 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
@@ -243,6 +245,8 @@ app.UseStaticFiles();
 app.UseCors("Angular");
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
+app.MapHealthChecks("/health").AllowAnonymous();
 
 app.Run();
