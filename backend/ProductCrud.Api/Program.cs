@@ -46,6 +46,10 @@ builder.Services.AddSerilog((services, loggerConfiguration) =>
             "Microsoft.AspNetCore.Routing",
             LogEventLevel.Warning)
         .Enrich.FromLogContext()
+
+        .Enrich.WithProperty(
+            "InstanceId",
+            Environment.MachineName)
         .WriteTo.Console();
 
     var seqServerUrl =

@@ -74,10 +74,8 @@ services:
       SEQ_FIRSTRUN_NOAUTHENTICATION: "True"
 
     ports:
-      - "127.0.0.1:5342:80"
-
-    expose:
-      - "5341"
+      - "127.0.0.1:8081:80"
+      - "127.0.0.1:5341:5341"
 
     volumes:
       - seq_data:/data
@@ -136,6 +134,7 @@ services:
   api-web1:
     <<: *api-common
     container_name: api-web1
+    hostname: api-web1
 
     build:
       context: ./backend
@@ -147,6 +146,7 @@ services:
   api-web2:
     <<: *api-common
     container_name: api-web2
+    hostname: api-web2
 
     build:
       context: ./backend
@@ -158,6 +158,7 @@ services:
   api-web3:
     <<: *api-common
     container_name: api-web3
+    hostname: api-web3
 
     build:
       context: ./backend
