@@ -1,934 +1,379 @@
-# Product CRUD - Internship Project
+# ProductCRUD
 
-Dự án Product CRUD được phát triển trong quá trình thực tập, bắt đầu từ chức năng CRUD sản phẩm cơ bản và được mở rộng dần với phân quyền, Audit Log, upload file, caching, Docker, CI/CD, centralized logging và API Gateway.
+Ứng dụng quản lý sản phẩm được phát triển trong quá trình thực tập, sử dụng **ASP.NET Core .NET 9**, **Angular 18**, **SQL Server**, **Redis**, **YARP**, **Serilog** và **Seq**.
 
-Ở phiên bản hiện tại, hệ thống sử dụng **ASP.NET Core .NET 9**, **Angular 18**, **SQL Server**, **Redis**, **Serilog + Seq**, **YARP API Gateway** và **Docker Compose**.
+Bản triển khai Docker hiện tại có **3 API container dùng chung một image**, một Redis, một Gateway và một Seq. Frontend truy cập API qua Gateway; dữ liệu nghiệp vụ được lưu trong SQL Server.
 
----
+## Chức năng
 
-## 1. Chức năng chính
+- **Sản phẩm:** xem danh sách và chi tiết; thêm, sửa, xóa mềm; tìm kiếm theo mã hoặc tên; lọc trạng thái; phân trang và sắp xếp.
+- **Danh mục:** API CRUD, cache danh sách bằng Redis, xóa cache sau khi thêm/sửa/xóa thành công.
+- **Xác thực và phân quyền:** JWT, ba vai trò Admin/Editor/Viewer, Route Guard và điều khiển hiển thị chức năng theo quyền.
+- **Audit log:** ghi lịch sử thao tác sản phẩm bằng Entity Framework interceptor, Channel và BackgroundService; Admin được tra cứu lịch sử.
+- **Upload:** JPG/JPEG/PNG/PDF, mặc định tối đa 5 MB; kiểm tra định dạng, dung lượng và chữ ký tệp; hiển thị tiến trình trên Angular.
+- **Xử lý lỗi:** middleware trả lỗi có cấu trúc; frontend gắn JWT, hiển thị Toast và chuyển về đăng nhập khi phiên không hợp lệ.
+- **Triển khai:** Docker Compose, chia sẻ cache và tệp upload giữa các API, cân bằng tải RoundRobin, health check và log có InstanceId.
+- **CI:** tự động build frontend, API, Gateway và các Docker image bằng GitHub Actions.
 
-### Quản lý sản phẩm
+## Kiến trúc Docker
 
-- Xem danh sách sản phẩm.
-- Thêm, sửa và xóa sản phẩm.
-- Xóa sản phẩm theo cơ chế Soft Delete.
-- Tìm kiếm sản phẩm theo mã hoặc tên.
-- Phân trang dữ liệu.
-- Lọc dữ liệu theo trạng thái.
-- Sắp xếp dữ liệu theo nhiều trường.
-- Truy vấn bằng LINQ + `IQueryable`.
-- Sử dụng `AsNoTracking()` cho các truy vấn chỉ đọc.
-
-### Quản lý danh mục
-
-- Xem danh sách danh mục.
-- Thêm và sửa danh mục với quyền Admin hoặc Editor.
-- Xóa danh mục với quyền Admin.
-- Cache danh sách Category bằng Redis.
-- Tự động xóa cache khi Category được thêm, sửa hoặc xóa.
-
-Luồng Cache-Aside:
-
-```text
-GET Categories
-      |
-      v
-    Redis
-   /     \
- HIT     MISS
-  |        |
-  |        v
-  |    SQL Server
-  |        |
-  |        v
-  |    Redis SET
-  |        |
-  +--------+
-      |
-      v
-   Response
+```mermaid
+flowchart LR
+    Browser["Browser :4200"] --> Frontend["Angular / Nginx"]
+    Client["HTTP client :5000"] --> Gateway["YARP Gateway"]
+    Frontend --> Gateway
+    Gateway --> Web1["api-web1 :8080"]
+    Gateway --> Web2["api-web2 :8080"]
+    Gateway --> Web3["api-web3 :8080"]
+    Web1 & Web2 & Web3 --> SQL["SQL Server dùng chung"]
+    Web1 & Web2 & Web3 --> Redis["Redis dùng chung"]
+    Web1 & Web2 & Web3 --> Seq["Serilog → Seq"]
 ```
 
-Cache Category có thời gian sống 10 phút.
+Ba service `api-web1`, `api-web2`, `api-web3` cùng build từ [Dockerfile API](backend/ProductCrud.Api/Dockerfile), cùng image `productcrud-api:week-scale`. Cấu hình chung được khai báo bằng `x-api-common` trong [docker-compose.yml](docker-compose.yml).
 
-Khi dữ liệu Category thay đổi:
+- API kết nối Redis bằng `redis:6379`, SQL Server bằng `sqlserver:1433` và Seq bằng `http://seq:5341`.
+- Gateway chuyển tiếp tới `http://api-web1:8080/`, `http://api-web2:8080/`, `http://api-web3:8080/`.
+- Frontend Nginx chuyển `/api/` và `/uploads/` tới `gateway:8080`.
+- Host port 5001–5003 dùng để truy cập trực tiếp từng API từ máy phát triển. Trong Docker network, các service dùng tên service và container port.
+- Container port API hiện là **8080**, phù hợp với Dockerfile và `ASPNETCORE_URLS=http://+:8080`.
 
-```text
-Create / Update / Delete
-          |
-          v
-      SQL Server
-          |
-          v
-   Redis Invalidate
-```
+### Công nghệ
 
-SQL Server vẫn là nguồn dữ liệu chính, Redis chỉ lưu dữ liệu cache tạm thời.
-
----
-
-## 2. Authentication và Authorization
-
-Hệ thống sử dụng JWT Authentication.
-
-Có 3 role:
-
-| Role | Quyền |
+| Thành phần | Công nghệ |
 | --- | --- |
-| Viewer | Xem sản phẩm và danh mục |
-| Editor | Xem, thêm, sửa sản phẩm và danh mục |
-| Admin | Toàn quyền, bao gồm xóa dữ liệu và xem Audit Log |
+| Frontend | Angular 18.2, TypeScript 5.5, RxJS |
+| Backend | ASP.NET Core .NET 9, Entity Framework Core 9 |
+| Database | SQL Server 2022 |
+| Cache | Redis 7, IDistributedCache |
+| Gateway | Yarp.ReverseProxy 2.3.0 |
+| Logging | Serilog, Serilog.Sinks.Seq, Seq 2026.1 |
+| Triển khai và CI | Docker Compose, Nginx, GitHub Actions |
 
-Backend kiểm tra quyền bằng:
+## Chạy bằng Docker Compose
+
+### Chuẩn bị
+
+Cài Git, Docker Desktop với Linux containers và Docker Compose. Chạy các lệnh từ thư mục gốc có `docker-compose.yml`.
+
+```powershell
+git clone https://github.com/Jurgo001/Project_ThucTap_ASP.Net.git ProductCRUD
+cd ProductCRUD
+Copy-Item .env.example .env
+```
+
+Sửa hai biến trong `.env` bằng giá trị riêng:
+
+```dotenv
+SA_PASSWORD=Replace_with_a_strong_SQL_password_123!
+JWT_KEY=Replace_with_a_random_key_of_at_least_32_ASCII_characters
+```
+
+Các giá trị trên chỉ là ví dụ. Mật khẩu SQL Server cần đáp ứng chính sách mật khẩu; JWT key cần ít nhất 32 byte cho cấu hình HMAC-SHA256 hiện tại. `.env` đã được Git bỏ qua. Nếu sử dụng SQL volume có sẵn, `SA_PASSWORD` phải khớp với mật khẩu đã cấu hình cho SQL Server đó.
+
+### Khởi tạo database lần đầu
+
+API tự chạy migration và tạo tài khoản mẫu nếu bảng người dùng chưa có dữ liệu. Với database mới, khởi động một API trước để tránh ba instance cùng thực hiện bước seed:
+
+```powershell
+docker compose up -d --build sqlserver redis seq api-web1
+docker compose logs -f api-web1
+```
+
+Đợi API khởi động và xuất hiện log `Now listening on`. Nhấn **Ctrl+C** để thoát chế độ xem log, sau đó kiểm tra:
+
+```powershell
+Invoke-WebRequest -Uri http://localhost:5001/health -UseBasicParsing
+```
+
+Khi nhận HTTP 200, khởi động toàn bộ hệ thống:
+
+```powershell
+docker compose up -d --build
+docker compose ps
+```
+
+Những lần chạy sau, dùng trực tiếp `docker compose up -d --build`. Compose hiện có **8 service**: frontend, gateway, api-web1, api-web2, api-web3, sqlserver, redis và seq.
+
+> `deploy.ps1` còn tham chiếu service `api` và các cổng cũ 5081/5082/5342. Với cấu hình ba API hiện tại, sử dụng các lệnh Compose ở trên cho đến khi script được cập nhật.
+
+### Địa chỉ truy cập
+
+| Thành phần | Địa chỉ từ máy host | Container port |
+| --- | --- | ---: |
+| Frontend | http://localhost:4200 | 80 |
+| Gateway API | http://localhost:5000/api/Categories | 8080 |
+| API web1 / Swagger | http://localhost:5001/swagger | 8080 |
+| API web2 / Swagger | http://localhost:5002/swagger | 8080 |
+| API web3 / Swagger | http://localhost:5003/swagger | 8080 |
+| Seq UI | http://localhost:8081 | 80 |
+| Seq ingestion | http://localhost:5341 | 5341 |
+| SQL Server | localhost:1433 | 1433 |
+| Redis | localhost:6379 | 6379 |
+
+API cần JWT ngoại trừ đăng nhập và `/health`. Gateway chỉ có route `/api/{**catchAll}` và `/uploads/{**catchAll}`: truy cập `http://localhost:5000/`, `/swagger` hoặc `/health` sẽ không vào các route đó. Dùng Swagger và health endpoint trực tiếp ở từng API.
+
+### Dữ liệu lưu trữ
+
+| Volume | Nội dung |
+| --- | --- |
+| `sqlserver_data` | Dữ liệu SQL Server |
+| `seq_data` | Dữ liệu Seq |
+| `api_uploads` | Thư mục `/app/wwwroot/uploads` dùng chung giữa ba API |
+
+`docker compose down` dừng và xóa container/network, giữ các named volume. Thêm tùy chọn `-v` sẽ xóa các volume và dữ liệu tương ứng.
+
+## Tài khoản và phân quyền
+
+Khi bảng người dùng chưa có dữ liệu, ứng dụng tạo các tài khoản phục vụ môi trường thực tập:
+
+| Username | Password | Quyền |
+| --- | --- | --- |
+| `admin` | `Admin@123` | Xem, thêm, sửa, xóa; upload; xem audit log |
+| `editor` | `Editor@123` | Xem, thêm, sửa; upload |
+| `viewer` | `Viewer@123` | Xem sản phẩm và danh mục |
+
+Mật khẩu được lưu dưới dạng hash bằng `PasswordHasher`. Backend kiểm tra quyền bằng `Authorize`; frontend dùng `authGuard`, `roleGuard` và ẩn/hiện nút theo vai trò. Các tài khoản mẫu dành cho môi trường thực hành.
+
+## API chính
+
+| Phương thức | Endpoint | Quyền |
+| --- | --- | --- |
+| POST | `/api/Authorization/Login` | Không cần đăng nhập |
+| GET | `/api/ProductManagement/GetAll` | Admin, Editor, Viewer |
+| GET | `/api/ProductManagement/GetById/{id}` | Admin, Editor, Viewer |
+| POST | `/api/ProductManagement/Create` | Admin, Editor |
+| PUT | `/api/ProductManagement/Update` | Admin, Editor |
+| DELETE | `/api/ProductManagement/Delete/{id}` | Admin |
+| GET | `/api/Categories`, `/api/Categories/{id}` | Đã đăng nhập |
+| POST, PUT | `/api/Categories` | Admin, Editor |
+| DELETE | `/api/Categories/{id}` | Admin |
+| POST | `/api/Files/Upload` | Admin, Editor |
+| GET | `/api/AuditLogs/GetAll` | Admin |
+| GET | `/health` trên từng API | Không cần đăng nhập |
+
+Danh sách sản phẩm nhận các query parameter `keyword`, `isActive`, `pageIndex`, `pageSize`, `sortField`, `sortDirection`. `pageSize` được giới hạn tối đa 100. Ví dụ:
+
+```text
+GET /api/ProductManagement/GetAll?pageIndex=1&pageSize=5&sortField=Price&sortDirection=asc
+```
+
+`PUT /api/Categories` nhận `id` trong JSON body, cùng `categoryName` và `isActive`. Danh sách danh mục chỉ trả các mục đang hoạt động và chưa bị xóa.
+
+Upload sử dụng multipart/form-data với trường `file`. Tệp được lưu bằng tên GUID và trả về đường dẫn `/uploads/{fileName}`.
+
+## Redis shared cache
+
+Category sử dụng cache-aside với khóa thực tế **`ProductCrud:categories:all`**, thời gian hết hạn **10 phút**:
+
+```text
+GET Categories → Redis HIT → trả dữ liệu cache
+GET Categories → Redis MISS → đọc SQL → ghi Redis → trả dữ liệu
+POST / PUT / DELETE thành công → lưu SQL → xóa khóa cache
+```
+
+`CategoryService` dùng `ICacheService`; bản triển khai hiện tại đăng ký `RedisCacheService` thông qua `IDistributedCache`. `MemoryCacheService` được giữ trong mã nguồn từ giai đoạn trước và không phải cache đang được đăng ký cho bản Docker hiện tại.
+
+Các thông điệp log phục vụ kiểm tra:
+
+- `REDIS MISS - Query Categories from database`
+- `REDIS HIT - Categories`
+- `REDIS INVALIDATED - Categories`
+
+Kiểm tra Redis:
+
+```powershell
+docker compose exec -T redis redis-cli PING
+docker compose exec -T redis redis-cli EXISTS "ProductCrud:categories:all"
+docker compose exec -T redis redis-cli TTL "ProductCrud:categories:all"
+```
+
+`TTL = -2` nghĩa là khóa không tồn tại tại thời điểm kiểm tra; có thể khóa chưa được tạo, vừa hết hạn hoặc vừa bị xóa. Đây không phải mã lỗi kết nối Redis.
+
+## YARP và health check
+
+Route API và cluster `apiCluster` được nạp từ [appsettings.json](backend/ProductCrud.Gateway/appsettings.json). Trong Docker, Compose ghi đè địa chỉ destination, bổ sung đủ ba API và đặt `LoadBalancingPolicy=RoundRobin`.
+
+Active health check gọi `/health` mỗi **2 giây**, timeout **1 giây**, chính sách `ConsecutiveFailures`, ngưỡng **1 lần thất bại**. Destination không khỏe được loại khỏi tập đích sau khi Gateway phát hiện lỗi; được xét lại khi phục hồi.
+
+`/health` hiện kiểm tra khả năng phục vụ HTTP của tiến trình API, chưa kiểm tra readiness riêng của SQL Server và Redis. Gateway chưa có retry request sang destination khác: trong khoảng thời gian API vừa dừng nhưng health check chưa phát hiện, vẫn có thể gặp 502. Retry GET tại Angular HttpInterceptor chỉ áp dụng cho client Angular, không áp dụng cho Postman.
+
+## Logging tập trung với Seq
+
+Một Seq nhận log từ cả ba API tại `http://seq:5341`. Serilog ghi log console và Seq, bổ sung:
 
 ```csharp
-[Authorize]
-[Authorize(Roles = "Admin,Editor")]
-[Authorize(Roles = "Admin")]
+.Enrich.FromLogContext()
+.Enrich.WithProperty("InstanceId", Environment.MachineName)
 ```
 
-Frontend sử dụng:
+Compose đặt `hostname` là `api-web1`, `api-web2`, `api-web3`, nên log có tên instance tương ứng. `UseSerilogRequestLogging()` ghi thông tin request như `RequestMethod`, `RequestPath`, `StatusCode` và thời gian xử lý.
 
-- `AuthGuard` để kiểm tra đăng nhập.
-- `RoleGuard` để giới hạn truy cập theo role.
-- Ẩn hoặc hiện các nút Thêm, Sửa, Xóa theo quyền người dùng.
-
-Nếu JWT hết hạn, `HttpInterceptor` sẽ đăng xuất người dùng và chuyển về màn hình đăng nhập.
-
----
-
-## 3. Audit Logging bất đồng bộ
-
-Các thao tác thay đổi Product được ghi lại vào Audit Log.
-
-Thay vì ghi Audit Log trực tiếp trong request chính, hệ thống sử dụng:
+Mở http://localhost:8081 và lọc:
 
 ```text
-Product Request
-      |
-      v
- Entity Framework
-      |
-      v
-AuditLogInterceptor
-      |
-      v
- C# Channel
-      |
-      v
-AuditLogBackgroundService
-      |
-      v
- AuditLogs Table
+InstanceId = 'api-web1'
 ```
 
-Các thành phần chính:
+Hoặc đối chiếu các request danh mục:
 
 ```text
-AuditLogInterceptor
-AuditLogQueue
-IAuditLogQueue
-AuditLogBackgroundService
+RequestPath = '/api/Categories' and RequestMethod = 'GET'
 ```
 
-`AuditLogInterceptor` đóng vai trò Producer.
+Seq hiện được cấu hình không yêu cầu đăng nhập trong môi trường phát triển, host port UI và ingestion chỉ bind vào `127.0.0.1`.
 
-`Channel` đóng vai trò queue trong bộ nhớ.
+## Kiểm tra luồng tích hợp
 
-`AuditLogBackgroundService` đóng vai trò Consumer và ghi Audit Log xuống SQL Server ở background.
+Các lệnh dưới đây chạy trong **cùng một phiên PowerShell**. Phần kiểm tra cache tạo một danh mục demo trong database; phần chịu lỗi tạm dừng web2 rồi khởi động lại.
 
-Điều này giúp việc ghi Audit Log không làm request chính phải chờ thêm thao tác ghi log.
+### Đăng nhập lấy JWT
 
----
+```powershell
+$loginBody = @{
+    username = "admin"
+    password = "Admin@123"
+} | ConvertTo-Json
 
-## 4. Upload file
-
-Hệ thống hỗ trợ upload:
-
-- JPG
-- JPEG
-- PNG
-- PDF
-
-Giới hạn dung lượng:
-
-```text
-5 MB
+$login = Invoke-RestMethod -Method Post -Uri "http://localhost:5000/api/Authorization/Login" -ContentType "application/json" -Body $loginBody
+$headers = @{ Authorization = "Bearer $($login.data.token)" }
 ```
 
-Backend kiểm tra:
+### Kiểm tra RoundRobin
 
-- Extension của file.
-- Dung lượng file.
-- File signature để hạn chế trường hợp đổi đuôi file giả.
-
-File được lưu tại:
-
-```text
-wwwroot/uploads/
+```powershell
+1..9 | ForEach-Object {
+    $response = Invoke-WebRequest -Uri "http://localhost:5000/api/Categories" -Headers $headers -UseBasicParsing
+    [pscustomobject]@{ Request = $_; Status = [int]$response.StatusCode }
+}
+docker compose logs --since 2m gateway | Select-String "Proxying to"
 ```
 
-và được truy cập thông qua:
+Đối chiếu log Gateway và thuộc tính `InstanceId` trên Seq để xác nhận cả ba API nhận request. Điểm bắt đầu của vòng phân phối có thể là bất kỳ instance nào, tùy các request đã được gửi trước đó.
 
-```text
-/uploads/{fileName}
+### Kiểm tra shared cache và invalidation xuyên instance
+
+```powershell
+docker compose exec -T redis redis-cli DEL "ProductCrud:categories:all"
+
+# web1 tạo cache; web3 đọc lại dữ liệu cache dùng chung.
+Invoke-RestMethod -Uri "http://localhost:5001/api/Categories" -Headers $headers | Out-Null
+Invoke-RestMethod -Uri "http://localhost:5003/api/Categories" -Headers $headers | Out-Null
+
+# Thêm danh mục qua web1.
+$categoryBody = @{
+    categoryName = "SharedCacheDemo-$(Get-Date -Format yyyyMMddHHmmss)"
+    isActive = $true
+} | ConvertTo-Json
+$created = Invoke-RestMethod -Method Post -Uri "http://localhost:5001/api/Categories" -Headers $headers -ContentType "application/json" -Body $categoryBody
+
+# Ngay sau POST, khóa cache cần không tồn tại nếu chưa có GET khác.
+docker compose exec -T redis redis-cli EXISTS "ProductCrud:categories:all"
+docker compose exec -T redis redis-cli TTL "ProductCrud:categories:all"
+
+# web3 đọc SQL, nhận danh mục mới và tạo cache lại; GET tiếp theo đọc HIT.
+$categories = Invoke-RestMethod -Uri "http://localhost:5003/api/Categories" -Headers $headers
+$categories.data | Where-Object { $_.id -eq $created.data }
+Invoke-RestMethod -Uri "http://localhost:5003/api/Categories" -Headers $headers | Out-Null
 ```
 
----
+Kỳ vọng: web1 `MISS` → web3 `HIT` → web1 `INVALIDATED` → `EXISTS=0, TTL=-2` → web3 thấy dữ liệu mới và `MISS` → web3 `HIT`. Trong lúc quan sát khóa, tránh gửi thêm GET Categories từ client khác vì request đó có thể tạo lại cache.
 
-## 5. Xử lý lỗi tập trung
+### Kiểm tra khi web2 dừng
 
-Backend sử dụng:
-
-```text
-GlobalExceptionMiddleware
-```
-
-để xử lý exception tập trung và trả về response thống nhất.
-
-Một response lỗi có thể bao gồm:
-
-```json
-{
-  "success": false,
-  "message": "Thông báo lỗi",
-  "statusCode": 400,
-  "traceId": "..."
+```powershell
+try {
+    docker stop api-web2
+    $results = foreach ($number in 1..20) {
+        $status = 0
+        try {
+            $response = Invoke-WebRequest -Uri "http://localhost:5000/api/Categories" -Headers $headers -UseBasicParsing -TimeoutSec 10
+            $status = [int]$response.StatusCode
+        }
+        catch {
+            if ($_.Exception.Response) {
+                $status = [int]$_.Exception.Response.StatusCode
+            }
+        }
+        [pscustomobject]@{ Request = $number; Status = $status }
+        Start-Sleep -Milliseconds 200
+    }
+    $results | Format-Table -AutoSize
+    docker compose logs --since 2m gateway | Select-String "Unhealthy|Healthy|Proxying to|fail"
+}
+finally {
+    docker start api-web2
 }
 ```
 
-Frontend sử dụng `HttpInterceptor` để:
+`Status=0` trong bảng là request không nhận được phản hồi HTTP. Script trên bắt đầu GET sau khi lệnh `docker stop` hoàn tất. Để kiểm tra đúng thời điểm chuyển tiếp, gửi GET liên tục bằng Postman hoặc một phiên PowerShell khác trong khi dừng web2 ở phiên thứ hai; mỗi phiên PowerShell cần có biến `$headers` riêng từ bước đăng nhập. Kiểm tra thêm Seq vẫn nhận log web1/web3. Không dùng kết quả chỉ sau khi phát hiện lỗi để khẳng định không có 502 tại thời điểm gián đoạn.
 
-- Gắn JWT token vào request.
-- Xử lý lỗi HTTP.
-- Hiển thị Toast.
-- Tự đăng xuất khi token hết hạn.
-- Retry tối đa 3 lần cho một số lỗi tạm thời khi thực hiện GET request.
+## Audit log và xử lý nền
 
----
+`AuditLogInterceptor` thu thập thay đổi Product. Sau khi lưu nghiệp vụ thành công, thông điệp được đưa vào `AuditLogQueue` dùng Channel; `AuditLogBackgroundService` đọc và lưu vào bảng audit bằng DbContext trong scope riêng.
 
-## 6. Redis Cache
+Hàng đợi nằm trong bộ nhớ của từng API, chưa có cơ chế lưu bền thông điệp khi tiến trình dừng đột ngột. Log nghiệp vụ trong SQL và log vận hành trên Seq phục vụ các mục đích tra cứu khác nhau.
 
-Redis được sử dụng để cache các dữ liệu ít thay đổi, hiện tại áp dụng cho danh sách Category.
+## CI trên GitHub Actions
 
-Công nghệ:
+Workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml). Chạy khi push, pull request hoặc gọi thủ công; push hiện không giới hạn nhánh.
 
-```text
-Microsoft.Extensions.Caching.StackExchangeRedis
-```
+| Build mã nguồn | Job Docker chạy tiếp theo |
+| --- | --- |
+| Angular Build | Frontend Docker Build |
+| .NET API Build | API Docker Build |
+| .NET Gateway Build | Gateway Docker Build |
 
-Cache key hiện tại:
+Pipeline có **6 job**, sử dụng Node.js 20 và .NET 9. Mỗi job Docker build image và kiểm tra bằng `docker image inspect`. Workflow hiện chưa push image lên registry, chưa triển khai lên server và chưa chạy các kịch bản end-to-end ở trên.
 
-```text
-ProductCrud:categories:all
-```
+Xem kết quả tại [GitHub Actions](https://github.com/Jurgo001/Project_ThucTap_ASP.Net/actions).
 
-Luồng đọc:
+## Phát triển ngoài Docker
 
-```text
-Request
-   |
-   v
-Redis
-   |
-   +---- HIT ----> Response
-   |
-   +---- MISS ---> SQL Server
-                     |
-                     v
-                  Redis SET
-                     |
-                     v
-                  Response
-```
+Cần .NET SDK 9, Node.js 20 và các dịch vụ SQL Server/Redis/Seq có thể truy cập từ máy phát triển.
 
-Luồng ghi:
+- Cấu hình riêng `ConnectionStrings:DefaultConnection`, các khóa `Jwt`, `Redis:ConnectionString` và `Seq:ServerUrl` bằng user-secrets hoặc biến môi trường. `dotnet run` không tự nạp `.env` của Compose.
+- Khi các dịch vụ chạy từ Compose hiện tại: Redis là `localhost:6379`, Seq ingestion là `http://localhost:5341`, SQL Server là `localhost,1433`.
+- API launch profile dùng `http://localhost:5081`. Angular `npm start` dùng `proxy.conf.json` để chuyển `/api` và `/uploads` trực tiếp đến API 5081.
+- Gateway chạy ngoài Docker có profile HTTP 5033 và destination mặc định API 5081; cấu hình này khác với cluster ba API do Compose cung cấp.
 
-```text
-Create / Update / Delete Category
-             |
-             v
-         SQL Server
-             |
-             v
-       Remove Redis Cache
-```
-
-Có thể kiểm tra Redis bằng:
-
-```bash
-docker compose exec redis redis-cli KEYS "*"
-```
-
----
-
-## 7. Centralized Logging với Serilog và Seq
-
-Backend sử dụng Serilog để ghi log có cấu trúc.
-
-Các package chính:
-
-```text
-Serilog.AspNetCore
-Serilog.Sinks.Console
-Serilog.Sinks.Seq
-```
-
-Log được gửi tới:
-
-```text
-Console
-   +
-Seq
-```
-
-Luồng logging:
-
-```text
-HTTP Request
-     |
-     v
-ProductCrud.Api
-     |
-     v
-   Serilog
-   /     \
-Console   Seq
-```
-
-API sử dụng:
-
-```csharp
-app.UseSerilogRequestLogging();
-```
-
-để ghi lại các HTTP request.
-
-Khi chạy bằng Docker, API gửi log tới:
-
-```text
-http://seq:5341
-```
-
-Seq UI được truy cập từ máy host tại:
-
-```text
-http://localhost:5342
-```
-
----
-
-## 8. API Gateway với YARP
-
-Hệ thống có một API Gateway riêng sử dụng:
-
-```text
-YARP - Yet Another Reverse Proxy
-```
-
-Project:
-
-```text
-backend/ProductCrud.Gateway
-```
-
-Gateway nhận các request:
-
-```text
-/api/**
-/uploads/**
-```
-
-và chuyển tiếp tới Product CRUD API.
-
-Luồng request khi chạy bằng Docker:
-
-```text
-Browser
-   |
-   v
-Angular
-   |
-   v
-Nginx
-   |
-   v
-YARP Gateway
-   |
-   v
-ProductCrud.Api
-   |
-   +------> Redis
-   |
-   +------> SQL Server
-   |
-   +------> Seq
-```
-
-Trong Docker network:
-
-```text
-frontend
-   |
-   v
-gateway:8080
-   |
-   v
-api:8080
-```
-
-Gateway được expose ra host tại:
-
-```text
-http://localhost:5082
-```
-
-API chính vẫn có thể truy cập trực tiếp tại:
-
-```text
-http://localhost:5081
-```
-
----
-
-## 9. Docker
-
-Toàn bộ hệ thống được chạy bằng Docker Compose.
-
-Các service hiện tại:
-
-```text
-sqlserver
-redis
-seq
-api
-gateway
-frontend
-```
-
-Kiến trúc:
-
-```text
-                        +----------------+
-                        |     Browser    |
-                        +-------+--------+
-                                |
-                                v
-                    http://localhost:4200
-                                |
-                                v
-                       +----------------+
-                       | Angular/Nginx  |
-                       +-------+--------+
-                               |
-                               v
-                       +----------------+
-                       |  YARP Gateway  |
-                       +-------+--------+
-                               |
-                               v
-                       +----------------+
-                       | ProductCrud.Api|
-                       +--+----------+--+
-                          |          |
-                 +--------+          +--------+
-                 |                            |
-                 v                            v
-           +-----------+                +-----------+
-           |   Redis   |                |SQL Server |
-           +-----------+                +-----------+
-
-                       ProductCrud.Api
-                              |
-                              v
-                           Serilog
-                              |
-                              v
-                             Seq
-```
-
-### Docker ports
-
-| Service | Host | Container |
-| --- | ---: | ---: |
-| Frontend | 4200 | 80 |
-| Gateway | 5082 | 8080 |
-| API | 5081 | 8080 |
-| Seq UI | 5342 | 80 |
-| SQL Server | 1433 | 1433 |
-| Redis | 6379 | 6379 |
-
-SQL Server sử dụng Docker Volume:
-
-```text
-sqlserver_data
-```
-
-để dữ liệu không bị mất khi container được tạo lại.
-
-Seq sử dụng:
-
-```text
-seq_data
-```
-
-để lưu dữ liệu log.
-
----
-
-## 10. CI/CD với GitHub Actions
-
-Project sử dụng GitHub Actions tại:
-
-```text
-.github/workflows/ci.yml
-```
-
-Workflow chạy khi:
-
-```text
-Push
-Pull Request
-Manual workflow_dispatch
-```
-
-Pipeline hiện tại:
-
-```text
-                   Git Push / Pull Request
-                            |
-             +--------------+--------------+
-             |              |              |
-             v              v              v
-      Angular Build    .NET API Build  Gateway Build
-             |              |              |
-             v              v              v
-      Frontend Docker   API Docker    Gateway Docker
-          Build            Build           Build
-```
-
-Các job:
-
-```text
-Angular Build
-.NET API Build
-.NET Gateway Build
-Frontend Docker Build
-API Docker Build
-Gateway Docker Build
-```
-
-Angular được build production bằng:
-
-```bash
-npm ci
-npm run build -- --configuration production
-```
-
-API và Gateway được build bằng .NET 9.
-
-Sau khi build source thành công, GitHub Actions tiếp tục build và kiểm tra Docker Image.
-
-> Pipeline hiện tại tập trung vào Continuous Integration và tự động kiểm tra khả năng đóng gói Docker Image. Docker Image chưa được push lên container registry hoặc tự động triển khai lên production server.
-
----
-
-## 11. Automated Deployment
-
-Project có script:
-
-```text
-deploy.ps1
-```
-
-để tự động build và khởi động toàn bộ Docker stack.
-
-Script thực hiện:
-
-```text
-Check Docker
-    |
-    v
-Check configuration
-    |
-    v
-Build Docker Images
-    |
-    v
-docker compose up
-    |
-    v
-Wait for services
-    |
-    v
-Verify endpoints
-```
-
-Các service được kiểm tra:
-
-```text
-SQL Server
-Redis
-Seq
-API
-Gateway
-Frontend
-```
-
-Script cũng kiểm tra:
-
-- Frontend.
-- Swagger API.
-- Gateway.
-- Seq UI.
-
----
-
-## 12. Công nghệ sử dụng
-
-### Backend
-
-- ASP.NET Core .NET 9
-- Entity Framework Core 9
-- LINQ / IQueryable
-- JWT Authentication
-- ASP.NET Core Authorization
-- C# Channel
-- BackgroundService
-- Serilog
-- YARP Reverse Proxy
-
-### Frontend
-
-- Angular 18
-- TypeScript 5.5
-- RxJS
-- Angular Router
-- HttpInterceptor
-- Route Guard
-
-### Database và Cache
-
-- SQL Server 2022
-- Redis 7
-
-### DevOps
-
-- Docker
-- Docker Compose
-- Nginx
-- PowerShell
-- GitHub Actions
-- Seq
-
----
-
-## 13. Cấu trúc project
-
-```text
-ProductCRUD/
-│
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-│
-├── backend/
-│   │
-│   ├── ProductCrud.Api/
-│   │   ├── BackgroundServices/
-│   │   ├── Controllers/
-│   │   ├── Infrastructure/
-│   │   ├── Middleware/
-│   │   ├── Models/
-│   │   ├── Services/
-│   │   ├── Dockerfile
-│   │   └── Program.cs
-│   │
-│   ├── ProductCrud.DataServices/
-│   │   ├── Audit/
-│   │   ├── Data/
-│   │   ├── Entities/
-│   │   ├── Infrastructure/
-│   │   ├── Migrations/
-│   │   ├── Models/
-│   │   ├── Repositories/
-│   │   └── Services/
-│   │
-│   └── ProductCrud.Gateway/
-│       ├── Dockerfile
-│       ├── Program.cs
-│       └── appsettings.json
-│
-├── frontend/
-│   └── product-crud-ui/
-│       ├── src/
-│       ├── Dockerfile
-│       ├── nginx.conf
-│       └── package.json
-│
-├── docker-compose.yml
-├── deploy.ps1
-├── .env.example
-└── README.md
-```
-
----
-
-## 14. Cách chạy project
-
-### Yêu cầu
-
-Máy cần cài:
-
-```text
-Docker Desktop
-PowerShell
-Git
-```
-
-Nếu chỉ chạy bằng Docker thì không cần chạy Angular hoặc API thủ công.
-
-### Bước 1: Clone project
-
-```bash
-git clone <repository-url>
-cd ProductCRUD
-```
-
-### Bước 2: Tạo file `.env`
-
-Tạo:
-
-```text
-.env
-```
-
-dựa trên:
-
-```text
-.env.example
-```
-
-Cấu hình:
-
-```env
-SA_PASSWORD=your_sql_server_password
-JWT_KEY=your_jwt_secret_key
-```
-
-Không commit `.env` chứa secret lên Git.
-
-### Bước 3: Chạy toàn bộ hệ thống
-
-Trên PowerShell:
+Build backend từ thư mục gốc:
 
 ```powershell
-.\deploy.ps1
+dotnet build backend/ProductCrud.Api/ProductCrud.Api.csproj --configuration Release
+dotnet build backend/ProductCrud.Gateway/ProductCrud.Gateway.csproj --configuration Release
 ```
 
-Hoặc:
+Build frontend từ thư mục gốc:
 
-```bash
-docker compose up -d --build
+```powershell
+npm --prefix frontend/product-crud-ui ci
+npm --prefix frontend/product-crud-ui run build -- --configuration production
 ```
 
-### Bước 4: Kiểm tra container
+Chạy API bằng `dotnet run --project backend/ProductCrud.Api/ProductCrud.Api.csproj`; chạy Angular bằng `npm start` trong thư mục frontend sau khi đã cấu hình các kết nối.
 
-```bash
-docker compose ps
-```
-
-Hệ thống cần có 6 service:
+## Cấu trúc mã nguồn
 
 ```text
-sqlserver
-redis
-seq
-api
-gateway
-frontend
+.github/workflows/ci.yml          # Pipeline build
+backend/
+  ProductCrud.Api/                # Controllers, middleware, startup, upload, background service
+  ProductCrud.DataServices/       # Entity, DbContext, migration, repository, service, cache, audit queue
+  ProductCrud.Gateway/            # YARP Gateway và Dockerfile
+frontend/product-crud-ui/         # Angular, guards, interceptors, Nginx, Dockerfile
+docker-compose.yml               # 3 API và các dịch vụ dùng chung
+.env.example                     # Mẫu biến môi trường Compose
+deploy.ps1                       # Script cũ cần đồng bộ với cấu hình scale
 ```
 
----
+### Lệnh vận hành thường dùng
 
-## 15. Địa chỉ truy cập
-
-| Thành phần | URL |
-| --- | --- |
-| Frontend | http://localhost:4200 |
-| API Gateway | http://localhost:5082 |
-| Swagger API | http://localhost:5081/swagger |
-| Seq | http://localhost:5342 |
-| SQL Server | localhost:1433 |
-| Redis | localhost:6379 |
-
-Khi sử dụng giao diện Angular, request API sẽ đi theo luồng:
-
-```text
-Browser
-   ↓
-Angular / Nginx
-   ↓
-YARP Gateway
-   ↓
-ProductCrud.Api
-```
-
----
-
-## 16. Tài khoản test
-
-Khi database chưa có user, hệ thống tự tạo ba tài khoản:
-
-| Username | Password | Role |
-| --- | --- | --- |
-| admin | Admin@123 | Admin |
-| editor | Editor@123 | Editor |
-| viewer | Viewer@123 | Viewer |
-
-Password được lưu dưới dạng hash bằng ASP.NET Core `PasswordHasher`.
-
----
-
-## 17. Một số lệnh kiểm tra
-
-### Xem trạng thái Docker
-
-```bash
+```powershell
 docker compose ps
-```
-
-### Xem log API
-
-```bash
-docker compose logs -f api
-```
-
-### Xem log Gateway
-
-```bash
+docker compose logs -f api-web1 api-web2 api-web3
 docker compose logs -f gateway
-```
-
-### Kiểm tra Redis
-
-```bash
-docker compose exec redis redis-cli KEYS "*"
-```
-
-### Xóa Category cache để test MISS
-
-```bash
-docker compose exec redis redis-cli DEL "ProductCrud:categories:all"
-```
-
-Sau đó gọi API Categories lần đầu:
-
-```text
-REDIS MISS - Query Categories from database
-```
-
-Gọi lại lần thứ hai:
-
-```text
-REDIS HIT - Categories
-```
-
-### Dừng hệ thống
-
-```bash
+docker compose logs -f seq
+docker compose config --quiet
 docker compose down
 ```
-
-Lệnh trên không xóa SQL Server volume.
-
-Không sử dụng:
-
-```bash
-docker compose down -v
-```
-
-nếu muốn giữ dữ liệu database.
-
----
-
-## 18. Luồng hệ thống tổng thể
-
-```text
-                           GitHub
-                              |
-                              v
-                       GitHub Actions
-                              |
-             +----------------+----------------+
-             |                |                |
-             v                v                v
-         Angular           .NET API        .NET Gateway
-          Build             Build             Build
-             |                |                |
-             v                v                v
-         Docker            Docker            Docker
-          Build             Build             Build
-
-
-                           Browser
-                              |
-                              v
-                      Angular + Nginx
-                              |
-                              v
-                        YARP Gateway
-                              |
-                              v
-                       ProductCrud.Api
-                      /       |       \
-                     /        |        \
-                    v         v         v
-               SQL Server   Redis    Serilog
-                                      |
-                                      v
-                                     Seq
-
-                       Product CRUD
-                              |
-                              v
-                    AuditLogInterceptor
-                              |
-                              v
-                         C# Channel
-                              |
-                              v
-                  AuditLogBackgroundService
-                              |
-                              v
-                         AuditLogs
-```
-
----
-
-## 19. Tiến độ hiện tại
-
-Các nội dung chính đã triển khai:
-
-- CRUD Product.
-- LINQ + IQueryable.
-- Pagination, Search, Filter và Sort.
-- JWT Authentication.
-- Authorization theo Admin / Editor / Viewer.
-- Route Guard và phân quyền giao diện.
-- Upload JPG, PNG và PDF.
-- Global Exception Middleware.
-- Audit Log.
-- Async Audit Logging bằng Channel + BackgroundService.
-- Docker hóa Frontend và Backend.
-- SQL Server chạy bằng Docker.
-- Redis Cache và Cache-Aside.
-- Cache invalidation.
-- PowerShell automated deployment.
-- CI/CD automation bằng GitHub Actions.
-- Build Docker Image trong pipeline.
-- Serilog structured logging.
-- Centralized Logging với Seq.
-- API Gateway bằng YARP.
-- Frontend định tuyến API thông qua Gateway.
