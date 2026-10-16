@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using ProductCrud.DataServices.Models;
 using ProductCrud.DataServices.Repositories;
 using ProductCrud.DataServices.Infrastructure.Caching;
+using Microsoft.Extensions.Logging;
 
 namespace ProductCrud.DataServices.Services;
 
@@ -13,13 +14,16 @@ public class CategoryService : ICategoryService
 {
     private readonly ICategoryRepository _repository;
     private readonly ICacheService _cache;
+    private readonly ILogger<CategoryService> _logger;
 
     public CategoryService(
         ICategoryRepository repository,
-        ICacheService cache)
+        ICacheService cache,
+        ILogger<CategoryService> logger)
     {
         _repository = repository;
         _cache = cache;
+        _logger = logger;
     }
 
     public async Task<ResultModel<List<CategoryDTO>>> GetAllAsync()
@@ -30,7 +34,7 @@ public class CategoryService : ICategoryService
 
         if (cachedCategories is not null)
         {
-            Console.WriteLine(
+            _logger.LogInformation(
                 "REDIS HIT - Categories");
 
             return ResultModel<List<CategoryDTO>>.Ok(
@@ -38,7 +42,7 @@ public class CategoryService : ICategoryService
                 "Lấy danh sách danh mục thành công.");
         }
 
-        Console.WriteLine(
+        _logger.LogInformation(
             "REDIS MISS - Query Categories from database");
 
         var categories =
@@ -76,11 +80,12 @@ public class CategoryService : ICategoryService
     {
         Validate(model);
 
-        var id =await _repository.CreateAsync(model);
+        var id = await _repository.CreateAsync(model);
 
-        await _cache.RemoveAsync( CacheKeys.Categories);
+        await _cache.RemoveAsync(CacheKeys.Categories);
 
-        Console.WriteLine("REDIS INVALIDATED - Categories");
+        _logger.LogInformation(
+            "REDIS INVALIDATED - Categories");
 
         return ResultModel<int>.Ok(
             id,
@@ -106,7 +111,8 @@ public class CategoryService : ICategoryService
 
         await _cache.RemoveAsync(CacheKeys.Categories);
 
-        Console.WriteLine("REDIS INVALIDATED - Categories");
+        _logger.LogInformation(
+            "REDIS INVALIDATED - Categories");
 
         return ResultModel<bool>.Ok(
             true,
@@ -130,7 +136,8 @@ public class CategoryService : ICategoryService
 
         await _cache.RemoveAsync(CacheKeys.Categories);
 
-        Console.WriteLine("REDIS INVALIDATED - Categories");
+        _logger.LogInformation(
+            "REDIS INVALIDATED - Categories");
 
         return ResultModel<bool>.Ok(
             true,
