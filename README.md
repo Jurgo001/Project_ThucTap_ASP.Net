@@ -367,77 +367,106 @@ docker-compose.yml               # 3 API và các dịch vụ dùng chung
 deploy.ps1                       # Script cũ cần đồng bộ với cấu hình scale
 ```
 
-### Lệnh vận hành thường dùng
+## Lệnh vận hành thường dùng
+
+### Build image và khởi động toàn bộ hệ thống ở chế độ nền
+
+```powershell
+docker compose up -d --build
+```
+
+### Chỉ build image, chưa khởi động container
+
+```powershell
+docker compose build
+```
+
+### Build và khởi động lại cả 3 API
+
+```powershell
+docker compose up -d --build api-web1 api-web2 api-web3
+```
+
+### Kiểm tra trạng thái container
 
 ```powershell
 docker compose ps
-docker compose logs -f api-web1 api-web2 api-web3
-docker compose logs -f gateway
-docker compose logs -f seq
+```
+
+### Kiểm tra cấu hình Compose
+
+```powershell
 docker compose config --quiet
+```
+
+### Xem 100 dòng log gần nhất của 3 API
+
+```powershell
+docker compose logs --tail 100 api-web1 api-web2 api-web3
+```
+
+### Theo dõi log thời gian thực của 3 API
+
+```powershell
+docker compose logs -f api-web1 api-web2 api-web3
+```
+
+### Xem 100 dòng log gần nhất của một API
+
+```powershell
+docker compose logs --tail 100 api-web1
+```
+
+### Xem 100 dòng log gần nhất của Gateway
+
+```powershell
+docker compose logs --tail 100 gateway
+```
+
+### Theo dõi log Gateway thời gian thực
+
+```powershell
+docker compose logs -f gateway
+```
+
+### Theo dõi log Seq thời gian thực
+
+```powershell
+docker compose logs -f seq
+```
+
+### Dừng riêng web2 để kiểm tra chịu lỗi
+
+```powershell
+docker compose stop api-web2
+```
+
+### Khởi động lại web2
+
+```powershell
+docker compose start api-web2
+```
+
+### Dừng toàn bộ container, giữ lại container để chạy lại
+
+```powershell
+docker compose stop
+```
+
+### Khởi động lại các container đã dừng
+
+```powershell
+docker compose start
+```
+
+### Dừng và xóa container cùng network
+
+```powershell
 docker compose down
 ```
 
-# Build image và khởi động toàn bộ hệ thống ở chế độ nền
+### Dừng và xóa container/network, gồm container của service đã bỏ khỏi Compose
 
-docker compose up -d --build
-
-# Chỉ build image, chưa khởi động container
-
-docker compose build
-
-# Build và khởi động lại cả 3 API
-
-docker compose up -d --build api-web1 api-web2 api-web3
-
-# Kiểm tra trạng thái container
-
-docker compose ps
-
-# Kiểm tra cấu hình Compose
-
-docker compose config --quiet
-
-# Xem 100 dòng log gần nhất của 3 API
-
-docker compose logs --tail 100 api-web1 api-web2 api-web3
-
-# Theo dõi log thời gian thực của 3 API
-
-docker compose logs -f api-web1 api-web2 api-web3
-
-# Xem log riêng một API
-
-docker compose logs --tail 100 api-web1
-
-# Xem 100 dòng log gần nhất của Gateway
-
-docker compose logs --tail 100 gateway
-
-# Theo dõi log Gateway thời gian thực
-
-docker compose logs -f gateway
-
-# Theo dõi log Seq thời gian thực
-
-docker compose logs -f seq
-
-# Dừng riêng web2 để kiểm tra chịu lỗi
-
-docker compose stop api-web2
-
-# Khởi động lại web2
-
-docker compose start api-web2
-
-# Dừng toàn bộ container, giữ lại container để chạy lại
-
-docker compose stop
-
-# Khởi động lại các container đã dừng
-
-docker compose start
-
-# Dừng và xóa container/network, gồm container của service đã bỏ khỏi Compose
-
+```powershell
 docker compose down --remove-orphans
+```
