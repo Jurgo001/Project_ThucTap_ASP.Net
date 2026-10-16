@@ -40,15 +40,15 @@ Ba service `api-web1`, `api-web2`, `api-web3` cùng build từ [Dockerfile API](
 
 ### Công nghệ
 
-| Thành phần | Công nghệ |
-| --- | --- |
-| Frontend | Angular 18.2, TypeScript 5.5, RxJS |
-| Backend | ASP.NET Core .NET 9, Entity Framework Core 9 |
-| Database | SQL Server 2022 |
-| Cache | Redis 7, IDistributedCache |
-| Gateway | Yarp.ReverseProxy 2.3.0 |
-| Logging | Serilog, Serilog.Sinks.Seq, Seq 2026.1 |
-| Triển khai và CI | Docker Compose, Nginx, GitHub Actions |
+| Thành phần       | Công nghệ                                    |
+| ---------------- | -------------------------------------------- |
+| Frontend         | Angular 18.2, TypeScript 5.5, RxJS           |
+| Backend          | ASP.NET Core .NET 9, Entity Framework Core 9 |
+| Database         | SQL Server 2022                              |
+| Cache            | Redis 7, IDistributedCache                   |
+| Gateway          | Yarp.ReverseProxy 2.3.0                      |
+| Logging          | Serilog, Serilog.Sinks.Seq, Seq 2026.1       |
+| Triển khai và CI | Docker Compose, Nginx, GitHub Actions        |
 
 ## Chạy bằng Docker Compose
 
@@ -99,27 +99,27 @@ Những lần chạy sau, dùng trực tiếp `docker compose up -d --build`. Co
 
 ### Địa chỉ truy cập
 
-| Thành phần | Địa chỉ từ máy host | Container port |
-| --- | --- | ---: |
-| Frontend | http://localhost:4200 | 80 |
-| Gateway API | http://localhost:5000/api/Categories | 8080 |
-| API web1 / Swagger | http://localhost:5001/swagger | 8080 |
-| API web2 / Swagger | http://localhost:5002/swagger | 8080 |
-| API web3 / Swagger | http://localhost:5003/swagger | 8080 |
-| Seq UI | http://localhost:8081 | 80 |
-| Seq ingestion | http://localhost:5341 | 5341 |
-| SQL Server | localhost:1433 | 1433 |
-| Redis | localhost:6379 | 6379 |
+| Thành phần         | Địa chỉ từ máy host                  | Container port |
+| ------------------ | ------------------------------------ | -------------: |
+| Frontend           | http://localhost:4200                |             80 |
+| Gateway API        | http://localhost:5000/api/Categories |           8080 |
+| API web1 / Swagger | http://localhost:5001/swagger        |           8080 |
+| API web2 / Swagger | http://localhost:5002/swagger        |           8080 |
+| API web3 / Swagger | http://localhost:5003/swagger        |           8080 |
+| Seq UI             | http://localhost:8081                |             80 |
+| Seq ingestion      | http://localhost:5341                |           5341 |
+| SQL Server         | localhost:1433                       |           1433 |
+| Redis              | localhost:6379                       |           6379 |
 
 API cần JWT ngoại trừ đăng nhập và `/health`. Gateway chỉ có route `/api/{**catchAll}` và `/uploads/{**catchAll}`: truy cập `http://localhost:5000/`, `/swagger` hoặc `/health` sẽ không vào các route đó. Dùng Swagger và health endpoint trực tiếp ở từng API.
 
 ### Dữ liệu lưu trữ
 
-| Volume | Nội dung |
-| --- | --- |
-| `sqlserver_data` | Dữ liệu SQL Server |
-| `seq_data` | Dữ liệu Seq |
-| `api_uploads` | Thư mục `/app/wwwroot/uploads` dùng chung giữa ba API |
+| Volume           | Nội dung                                              |
+| ---------------- | ----------------------------------------------------- |
+| `sqlserver_data` | Dữ liệu SQL Server                                    |
+| `seq_data`       | Dữ liệu Seq                                           |
+| `api_uploads`    | Thư mục `/app/wwwroot/uploads` dùng chung giữa ba API |
 
 `docker compose down` dừng và xóa container/network, giữ các named volume. Thêm tùy chọn `-v` sẽ xóa các volume và dữ liệu tương ứng.
 
@@ -127,30 +127,30 @@ API cần JWT ngoại trừ đăng nhập và `/health`. Gateway chỉ có route
 
 Khi bảng người dùng chưa có dữ liệu, ứng dụng tạo các tài khoản phục vụ môi trường thực tập:
 
-| Username | Password | Quyền |
-| --- | --- | --- |
-| `admin` | `Admin@123` | Xem, thêm, sửa, xóa; upload; xem audit log |
-| `editor` | `Editor@123` | Xem, thêm, sửa; upload |
-| `viewer` | `Viewer@123` | Xem sản phẩm và danh mục |
+| Username | Password     | Quyền                                      |
+| -------- | ------------ | ------------------------------------------ |
+| `admin`  | `Admin@123`  | Xem, thêm, sửa, xóa; upload; xem audit log |
+| `editor` | `Editor@123` | Xem, thêm, sửa; upload                     |
+| `viewer` | `Viewer@123` | Xem sản phẩm và danh mục                   |
 
 Mật khẩu được lưu dưới dạng hash bằng `PasswordHasher`. Backend kiểm tra quyền bằng `Authorize`; frontend dùng `authGuard`, `roleGuard` và ẩn/hiện nút theo vai trò. Các tài khoản mẫu dành cho môi trường thực hành.
 
 ## API chính
 
-| Phương thức | Endpoint | Quyền |
-| --- | --- | --- |
-| POST | `/api/Authorization/Login` | Không cần đăng nhập |
-| GET | `/api/ProductManagement/GetAll` | Admin, Editor, Viewer |
-| GET | `/api/ProductManagement/GetById/{id}` | Admin, Editor, Viewer |
-| POST | `/api/ProductManagement/Create` | Admin, Editor |
-| PUT | `/api/ProductManagement/Update` | Admin, Editor |
-| DELETE | `/api/ProductManagement/Delete/{id}` | Admin |
-| GET | `/api/Categories`, `/api/Categories/{id}` | Đã đăng nhập |
-| POST, PUT | `/api/Categories` | Admin, Editor |
-| DELETE | `/api/Categories/{id}` | Admin |
-| POST | `/api/Files/Upload` | Admin, Editor |
-| GET | `/api/AuditLogs/GetAll` | Admin |
-| GET | `/health` trên từng API | Không cần đăng nhập |
+| Phương thức | Endpoint                                  | Quyền                 |
+| ----------- | ----------------------------------------- | --------------------- |
+| POST        | `/api/Authorization/Login`                | Không cần đăng nhập   |
+| GET         | `/api/ProductManagement/GetAll`           | Admin, Editor, Viewer |
+| GET         | `/api/ProductManagement/GetById/{id}`     | Admin, Editor, Viewer |
+| POST        | `/api/ProductManagement/Create`           | Admin, Editor         |
+| PUT         | `/api/ProductManagement/Update`           | Admin, Editor         |
+| DELETE      | `/api/ProductManagement/Delete/{id}`      | Admin                 |
+| GET         | `/api/Categories`, `/api/Categories/{id}` | Đã đăng nhập          |
+| POST, PUT   | `/api/Categories`                         | Admin, Editor         |
+| DELETE      | `/api/Categories/{id}`                    | Admin                 |
+| POST        | `/api/Files/Upload`                       | Admin, Editor         |
+| GET         | `/api/AuditLogs/GetAll`                   | Admin                 |
+| GET         | `/health` trên từng API                   | Không cần đăng nhập   |
 
 Danh sách sản phẩm nhận các query parameter `keyword`, `isActive`, `pageIndex`, `pageSize`, `sortField`, `sortDirection`. `pageSize` được giới hạn tối đa 100. Ví dụ:
 
@@ -318,11 +318,11 @@ Hàng đợi nằm trong bộ nhớ của từng API, chưa có cơ chế lưu b
 
 Workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml). Chạy khi push, pull request hoặc gọi thủ công; push hiện không giới hạn nhánh.
 
-| Build mã nguồn | Job Docker chạy tiếp theo |
-| --- | --- |
-| Angular Build | Frontend Docker Build |
-| .NET API Build | API Docker Build |
-| .NET Gateway Build | Gateway Docker Build |
+| Build mã nguồn     | Job Docker chạy tiếp theo |
+| ------------------ | ------------------------- |
+| Angular Build      | Frontend Docker Build     |
+| .NET API Build     | API Docker Build          |
+| .NET Gateway Build | Gateway Docker Build      |
 
 Pipeline có **6 job**, sử dụng Node.js 20 và .NET 9. Mỗi job Docker build image và kiểm tra bằng `docker image inspect`. Workflow hiện chưa push image lên registry, chưa triển khai lên server và chưa chạy các kịch bản end-to-end ở trên.
 
@@ -377,3 +377,67 @@ docker compose logs -f seq
 docker compose config --quiet
 docker compose down
 ```
+
+# Build image và khởi động toàn bộ hệ thống ở chế độ nền
+
+docker compose up -d --build
+
+# Chỉ build image, chưa khởi động container
+
+docker compose build
+
+# Build và khởi động lại cả 3 API
+
+docker compose up -d --build api-web1 api-web2 api-web3
+
+# Kiểm tra trạng thái container
+
+docker compose ps
+
+# Kiểm tra cấu hình Compose
+
+docker compose config --quiet
+
+# Xem 100 dòng log gần nhất của 3 API
+
+docker compose logs --tail 100 api-web1 api-web2 api-web3
+
+# Theo dõi log thời gian thực của 3 API
+
+docker compose logs -f api-web1 api-web2 api-web3
+
+# Xem log riêng một API
+
+docker compose logs --tail 100 api-web1
+
+# Xem 100 dòng log gần nhất của Gateway
+
+docker compose logs --tail 100 gateway
+
+# Theo dõi log Gateway thời gian thực
+
+docker compose logs -f gateway
+
+# Theo dõi log Seq thời gian thực
+
+docker compose logs -f seq
+
+# Dừng riêng web2 để kiểm tra chịu lỗi
+
+docker compose stop api-web2
+
+# Khởi động lại web2
+
+docker compose start api-web2
+
+# Dừng toàn bộ container, giữ lại container để chạy lại
+
+docker compose stop
+
+# Khởi động lại các container đã dừng
+
+docker compose start
+
+# Dừng và xóa container/network, gồm container của service đã bỏ khỏi Compose
+
+docker compose down --remove-orphans
